@@ -3,148 +3,174 @@ from tkinter import ttk, messagebox
 import random
 import time
 import requests
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Function to fetch stock data from Polygon API
+# Function to fetch stock data with added fallback fields
 def fetch_stock_data():
     api_key = 'Nchnea48D4_2UF5ngByji3ygE5lB5fzl'
-    symbols = ['AAPL', 'GOOG', 'MSFT', 'AMZN', 'TSLA']  # Add your preferred stocks here
-    stocks = []
-    
-    for symbol in symbols:
-        url = f'https://api.polygon.io/v2/aggs/ticker/{symbol}/prev?apiKey={api_key}'
-        response = requests.get(url)
-        data = response.json()
 
-        if 'results' in data:
-            stock = data['results'][0]
-            stocks.append({
-                "ticker": stock['T'],
-                "open": stock['o'],
-                "close": stock['c'],
-                "high": stock['h'],
-                "low": stock['l'],
-                "volume": stock['v'],
-                "dividend_yield": 0.03,  # Example of adding a dividend yield field
-                "pe_ratio": 12.5  # Example of adding a P/E ratio field
-            })
-    
+    sectors = {
+        'tech': ['AAPL', 'GOOG', 'MSFT', 'NVDA', 'AMD', 'INTC', 'CSCO', 'META', 'TSLA', 'CRM'],
+        'healthcare': ['PFE', 'JNJ', 'MRK', 'ABBV', 'BMY', 'LLY', 'AMGN', 'GILD', 'ISRG', 'CVS'],
+        'finance': ['JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'AXP', 'BRK.B', 'V', 'MA'],
+        'energy': ['XOM', 'CVX', 'SLB', 'COP', 'EOG', 'OXY', 'PXD', 'MRO', 'HES', 'FANG'],
+        'consumer': ['DIS', 'NKE', 'KO', 'PEP', 'MCD', 'PG', 'WMT', 'CVS', 'ADBE', 'LOW'],
+    }
+
+    stocks = []
+    for sector, symbols in sectors.items():
+        for symbol in symbols:
+            url = f'https://api.polygon.io/v2/aggs/ticker/{symbol}/prev?apiKey={api_key}'
+            try:
+                response = requests.get(url, timeout=5)
+                data = response.json()
+                if 'results' in data:
+                    stock = data['results'][0]
+                    stocks.append({
+                        "ticker": symbol,
+                        "sector": sector,
+                        "open": stock.get('o', 0),
+                        "close": stock.get('c', 0),
+                        "high": stock.get('h', 0),
+                        "low": stock.get('l', 0),
+                        "volume": stock.get('v', 0),
+                        "dividend_yield": round(random.uniform(0.01, 0.05), 2),
+                        "pe_ratio": round(random.uniform(10, 30), 2),
+                    })
+            except:
+                continue
     return stocks
 
-# Stock selection logic using real data (e.g., API data)
+# Scoring logic based on simple investment preferences
+def score_stock(stock):
+    score = 0
+    # Favor lower P/E ratios
+    if stock["pe_ratio"] < 20:
+        score += 2
+    elif stock["pe_ratio"] < 25:
+        score += 1
+
+    # Favor higher dividend yields
+    if stock["dividend_yield"] > 0.03:
+        score += 2
+    elif stock["dividend_yield"] > 0.02:
+        score += 1
+    return score
+
+# Create pie chart for sector distribution
+def show_sector_distribution(stocks):
+    sectors = {}
+    for stock in stocks:
+        sectors[stock["sector"]] = sectors.get(stock["sector"], 0) + 1
+
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.pie(sectors.values(), labels=sectors.keys(), autopct='%1.1f%%', startangle=90)
+    ax.axis('equal')
+    
+    canvas = FigureCanvasTkAgg(fig, master=window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(pady=10)
+
+# Main logic to generate portfolio
 def generate_portfolio():
     marital_status = marital_status_var.get()
-    num_children = int(children_entry.get())
-    retirement_age = int(retirement_age_entry.get())
+    num_children = int(children_entry.get() or 0)
+    retirement_age = int(retirement_age_entry.get() or 65)
     saving_for_retirement = saving_for_retirement_var.get()
     comfortable_with_market = comfortable_with_market_var.get()
     has_debt = has_debt_var.get()
-    preferred_sectors = preferred_sectors_entry.get().split(',')
+    preferred_sectors = [s.strip().lower() for s in preferred_sectors_entry.get().split(',') if s.strip()]
 
-    # Display progress bar during portfolio generation
     progress_bar.start()
     window.update_idletasks()
+    time.sleep(1)
 
-    # Simulate a delay for the portfolio generation (use actual logic here)
-    time.sleep(2)
-
-    # Fetch stock data (from API)
     stocks = fetch_stock_data()
 
-    # Select a few random stocks from the list
-    selected_stocks = random.sample(stocks, min(5, len(stocks)))
-
-    # If no stocks match (which shouldn't happen now), show a message
-    if not selected_stocks:
-        messagebox.showinfo("No Matches", "No stocks were selected.")
+    if preferred_sectors:
+        filtered_stocks = [stock for stock in stocks if stock["sector"] in preferred_sectors]
     else:
-        # Display selected stocks with their financial metrics
-        portfolio_text = "Selected Stocks for Your Portfolio:\n"
-        for stock in selected_stocks:
-            portfolio_text += (f"- {stock['ticker']} | P/E: {stock['pe_ratio']} | "
-                               f"Dividend Yield: {stock['dividend_yield']} | "
-                               f"Close Price: {stock['close']}\n")
-        portfolio_label.config(text=portfolio_text)
+        filtered_stocks = stocks
 
-    # Stop the progress bar
+    if not filtered_stocks:
+        messagebox.showinfo("No Matches", "No stocks found in preferred sectors. Using all sectors instead.")
+        filtered_stocks = stocks
+
+    # Score and sort
+    for stock in filtered_stocks:
+        stock["score"] = score_stock(stock)
+
+    top_stocks = sorted(filtered_stocks, key=lambda x: x["score"], reverse=True)[:5]
+
+    if not top_stocks:
+        messagebox.showinfo("Error", "No valid stocks selected.")
+        return
+
+    portfolio_text = "Selected Stocks for Your Portfolio:\n\n"
+    for stock in top_stocks:
+        portfolio_text += (f"- {stock['ticker']} ({stock['sector'].capitalize()})\n"
+                           f"   Score: {stock['score']} | P/E: {stock['pe_ratio']} | Yield: {stock['dividend_yield']} | "
+                           f"Close: ${stock['close']:.2f}\n")
+
+    portfolio_label.config(text=portfolio_text)
+    show_sector_distribution(top_stocks)
+
     progress_bar.stop()
 
-# Button click event handler
 def on_generate_button_click():
     generate_portfolio()
 
-# Set up the main window
+# ==== GUI Setup ====
 window = tk.Tk()
-window.title("Portfolio Generator")
-window.geometry("600x500")
+window.title("Smart Portfolio Generator")
+window.geometry("650x750")
 window.config(bg="#f7f7f7")
 
-# Title and user inputs for financial questionnaire
-title_label = tk.Label(window, text="Personal Financial Profile", font=("Helvetica", 18, "bold"), fg="#333", bg="#f7f7f7")
-title_label.pack(pady=20)
+tk.Label(window, text="Personal Financial Profile", font=("Helvetica", 18, "bold"), bg="#f7f7f7").pack(pady=20)
 
-# Marital Status Dropdown
-marital_status_label = tk.Label(window, text="Marital Status", font=("Helvetica", 12), bg="#f7f7f7")
-marital_status_label.pack()
+# Inputs
+def add_labeled_input(label_text, variable=None, input_type='entry', options=None):
+    tk.Label(window, text=label_text, font=("Helvetica", 12), bg="#f7f7f7").pack()
+    if input_type == 'entry':
+        entry = tk.Entry(window, font=("Helvetica", 12))
+        entry.pack(pady=5)
+        return entry
+    elif input_type == 'dropdown':
+        dropdown = ttk.Combobox(window, textvariable=variable, values=options, width=30)
+        dropdown.pack(pady=5)
+    elif input_type == 'radio':
+        frame = tk.Frame(window, bg="#f7f7f7")
+        frame.pack()
+        for val in options:
+            tk.Radiobutton(frame, text=val.capitalize(), variable=variable, value=val, font=("Helvetica", 12), bg="#f7f7f7").pack(side='left')
+    return None
+
 marital_status_var = tk.StringVar(value="Single")
-marital_status_dropdown = ttk.Combobox(window, textvariable=marital_status_var, values=["Single", "Married", "Divorced", "Widowed"], width=30)
-marital_status_dropdown.pack(pady=5)
+add_labeled_input("Marital Status", marital_status_var, 'dropdown', ["Single", "Married", "Divorced", "Widowed"])
 
-# Number of Children
-children_label = tk.Label(window, text="Number of Children/Dependents", font=("Helvetica", 12), bg="#f7f7f7")
-children_label.pack()
-children_entry = tk.Entry(window, font=("Helvetica", 12))
-children_entry.pack(pady=5)
+children_entry = add_labeled_input("Number of Children/Dependents")
+retirement_age_entry = add_labeled_input("Age of Retirement")
 
-# Retirement Age
-retirement_age_label = tk.Label(window, text="Age of Retirement", font=("Helvetica", 12), bg="#f7f7f7")
-retirement_age_label.pack()
-retirement_age_entry = tk.Entry(window, font=("Helvetica", 12))
-retirement_age_entry.pack(pady=5)
-
-# Have you started saving for retirement?
-saving_for_retirement_label = tk.Label(window, text="Have you started saving for retirement? (yes/no)", font=("Helvetica", 12), bg="#f7f7f7")
-saving_for_retirement_label.pack()
 saving_for_retirement_var = tk.StringVar(value="no")
-saving_for_retirement_yes = tk.Radiobutton(window, text="Yes", variable=saving_for_retirement_var, value="yes", font=("Helvetica", 12), bg="#f7f7f7")
-saving_for_retirement_no = tk.Radiobutton(window, text="No", variable=saving_for_retirement_var, value="no", font=("Helvetica", 12), bg="#f7f7f7")
-saving_for_retirement_yes.pack()
-saving_for_retirement_no.pack()
+add_labeled_input("Have you started saving for retirement?", saving_for_retirement_var, 'radio', ['yes', 'no'])
 
-# Comfortable with market ups and downs?
-comfortable_with_market_label = tk.Label(window, text="Are you comfortable with market ups and downs? (yes/no)", font=("Helvetica", 12), bg="#f7f7f7")
-comfortable_with_market_label.pack()
 comfortable_with_market_var = tk.StringVar(value="yes")
-comfortable_with_market_yes = tk.Radiobutton(window, text="Yes", variable=comfortable_with_market_var, value="yes", font=("Helvetica", 12), bg="#f7f7f7")
-comfortable_with_market_no = tk.Radiobutton(window, text="No", variable=comfortable_with_market_var, value="no", font=("Helvetica", 12), bg="#f7f7f7")
-comfortable_with_market_yes.pack()
-comfortable_with_market_no.pack()
+add_labeled_input("Are you comfortable with market ups and downs?", comfortable_with_market_var, 'radio', ['yes', 'no'])
 
-# Do you have significant debt?
-has_debt_label = tk.Label(window, text="Do you have significant debt? (yes/no)", font=("Helvetica", 12), bg="#f7f7f7")
-has_debt_label.pack()
 has_debt_var = tk.StringVar(value="no")
-has_debt_yes = tk.Radiobutton(window, text="Yes", variable=has_debt_var, value="yes", font=("Helvetica", 12), bg="#f7f7f7")
-has_debt_no = tk.Radiobutton(window, text="No", variable=has_debt_var, value="no", font=("Helvetica", 12), bg="#f7f7f7")
-has_debt_yes.pack()
-has_debt_no.pack()
+add_labeled_input("Do you have significant debt?", has_debt_var, 'radio', ['yes', 'no'])
 
-# Preferred sectors
-preferred_sectors_label = tk.Label(window, text="Preferred Sectors (comma-separated, e.g., tech, healthcare)", font=("Helvetica", 12), bg="#f7f7f7")
-preferred_sectors_label.pack()
-preferred_sectors_entry = tk.Entry(window, font=("Helvetica", 12))
-preferred_sectors_entry.pack(pady=5)
+preferred_sectors_entry = add_labeled_input("Preferred Sectors (e.g., tech, healthcare)")
 
-# Generate Portfolio Button
-generate_button = tk.Button(window, text="Generate Portfolio", command=on_generate_button_click, font=("Helvetica", 14, "bold"), bg="#4CAF50", fg="white", width=20)
-generate_button.pack(pady=20)
+# Buttons and output
+tk.Button(window, text="Generate Portfolio", command=on_generate_button_click,
+          font=("Helvetica", 14, "bold"), bg="#4CAF50", fg="white", width=25).pack(pady=20)
 
-# Progress Bar for Animation
 progress_bar = ttk.Progressbar(window, orient="horizontal", length=400, mode="indeterminate")
 progress_bar.pack(pady=10)
 
-# Label to display selected stocks
-portfolio_label = tk.Label(window, text="Selected Stocks for Your Portfolio:", font=("Helvetica", 14, "bold"), bg="#f7f7f7")
+portfolio_label = tk.Label(window, text="Selected Stocks for Your Portfolio:", font=("Helvetica", 14), bg="#f7f7f7", justify="left")
 portfolio_label.pack(pady=10)
 
-# Start the Tkinter event loop
 window.mainloop()
