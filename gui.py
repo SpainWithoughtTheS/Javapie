@@ -72,6 +72,22 @@ def show_sector_distribution(stocks):
     canvas.draw()
     canvas.get_tk_widget().pack(pady=10)
 
+# Normalize sector names
+sector_aliases = {
+    'health care': 'healthcare',
+    'health': 'healthcare',
+    'technology': 'tech',
+    'technical': 'tech',
+    'consumer goods': 'consumer',
+    'financial': 'finance',
+    'fin': 'finance',
+    'energy': 'energy',
+    'tech': 'tech',
+    'finance': 'finance',
+    'consumer': 'consumer',
+    'healthcare': 'healthcare'
+}
+
 # Main logic to generate portfolio
 def generate_portfolio():
     marital_status = marital_status_var.get()
@@ -80,7 +96,10 @@ def generate_portfolio():
     saving_for_retirement = saving_for_retirement_var.get()
     comfortable_with_market = comfortable_with_market_var.get()
     has_debt = has_debt_var.get()
-    preferred_sectors = [s.strip().lower() for s in preferred_sectors_entry.get().split(',') if s.strip()]
+    
+    # Fetch and normalize preferred sectors input
+    input_sectors = preferred_sectors_var.get().strip().lower().split(',')
+    normalized_sectors = [sector_aliases.get(s.strip(), s.strip()) for s in input_sectors]
 
     progress_bar.start()
     window.update_idletasks()
@@ -88,8 +107,8 @@ def generate_portfolio():
 
     stocks = fetch_stock_data()
 
-    if preferred_sectors:
-        filtered_stocks = [stock for stock in stocks if stock["sector"] in preferred_sectors]
+    if normalized_sectors:
+        filtered_stocks = [stock for stock in stocks if stock["sector"] in normalized_sectors]
     else:
         filtered_stocks = stocks
 
@@ -121,7 +140,24 @@ def generate_portfolio():
 def on_generate_button_click():
     generate_portfolio()
 
-# ==== GUI Setup ====
+# ==== Theme Logic ====
+def set_theme(theme):
+    style = ttk.Style()
+    if theme == "dark":
+        style.configure('TButton', background='#444', foreground='white', font=('Helvetica', 12))
+        style.configure('TLabel', background='#333', foreground='white', font=('Helvetica', 14))
+        style.configure('TFrame', background='#222')
+        window.config(bg='#222')
+    elif theme == "light":
+        style.configure('TButton', background='#4CAF50', foreground='white', font=('Helvetica', 12))
+        style.configure('TLabel', background='#f7f7f7', foreground='black', font=('Helvetica', 14))
+        style.configure('TFrame', background='#f7f7f7')
+        window.config(bg='#f7f7f7')
+
+def on_theme_change(selected_theme):
+    set_theme(selected_theme)
+
+# ==== UI Setup ====
 window = tk.Tk()
 window.title("Smart Portfolio Generator")
 window.geometry("650x750")
@@ -139,6 +175,7 @@ def add_labeled_input(label_text, variable=None, input_type='entry', options=Non
     elif input_type == 'dropdown':
         dropdown = ttk.Combobox(window, textvariable=variable, values=options, width=30)
         dropdown.pack(pady=5)
+        return dropdown
     elif input_type == 'radio':
         frame = tk.Frame(window, bg="#f7f7f7")
         frame.pack()
@@ -146,6 +183,7 @@ def add_labeled_input(label_text, variable=None, input_type='entry', options=Non
             tk.Radiobutton(frame, text=val.capitalize(), variable=variable, value=val, font=("Helvetica", 12), bg="#f7f7f7").pack(side='left')
     return None
 
+# Personal financial profile inputs
 marital_status_var = tk.StringVar(value="Single")
 add_labeled_input("Marital Status", marital_status_var, 'dropdown', ["Single", "Married", "Divorced", "Widowed"])
 
@@ -161,11 +199,18 @@ add_labeled_input("Are you comfortable with market ups and downs?", comfortable_
 has_debt_var = tk.StringVar(value="no")
 add_labeled_input("Do you have significant debt?", has_debt_var, 'radio', ['yes', 'no'])
 
-preferred_sectors_entry = add_labeled_input("Preferred Sectors (e.g., tech, healthcare)")
+# Sector selection dropdown (updated)
+preferred_sectors_var = tk.StringVar()
+add_labeled_input("Preferred Sectors (e.g., tech, healthcare)", preferred_sectors_var, 'dropdown', ["tech", "healthcare", "finance", "energy", "consumer"])
 
-# Buttons and output
-tk.Button(window, text="Generate Portfolio", command=on_generate_button_click,
-          font=("Helvetica", 14, "bold"), bg="#4CAF50", fg="white", width=25).pack(pady=20)
+# Theme selection dropdown
+theme_dropdown = ttk.Combobox(window, values=["light", "dark"], state="readonly")
+theme_dropdown.set("light")
+theme_dropdown.bind("<<ComboboxSelected>>", lambda e: on_theme_change(theme_dropdown.get()))
+theme_dropdown.pack(pady=10)
+
+# Button and progress bar
+tk.Button(window, text="Generate Portfolio", command=on_generate_button_click, font=("Helvetica", 14, "bold"), bg="#4CAF50", fg="white", width=25).pack(pady=20)
 
 progress_bar = ttk.Progressbar(window, orient="horizontal", length=400, mode="indeterminate")
 progress_bar.pack(pady=10)
