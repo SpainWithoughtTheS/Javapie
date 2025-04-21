@@ -95,6 +95,13 @@ def generate_portfolio():
     input_sectors = preferred_sectors_var.get().strip().lower().split(',')
     normalized_sectors = [sector_aliases.get(s.strip(), s.strip()) for s in input_sectors]
 
+    # Get age and adjust risk score
+    try:
+        age = int(age_entry.get())
+    except ValueError:
+        messagebox.showerror("Input Error", "Enter a valid age.")
+        return
+
     risk_score = 5
     risk_score += 1 if marital_status.lower() == "single" else -1
     risk_score -= 1 if num_children > 0 else 0
@@ -102,6 +109,13 @@ def generate_portfolio():
     risk_score += 2 if comfortable_with_market == "yes" else -1
     risk_score += -2 if debt_amount > 50000 else -1 if debt_amount > 10000 else -0.5 if debt_amount > 0 else 1
     risk_score += -1 if saving_for_retirement == "no" else 0
+
+    # Adjust risk score based on age
+    if age < 30:
+        risk_score += 2  # Higher risk tolerance for younger people
+    elif age > 50:
+        risk_score -= 2  # Lower risk tolerance for older people
+
     risk_score = max(1, min(10, round(risk_score)))
 
     progress_bar.start()
@@ -129,73 +143,100 @@ def generate_portfolio():
     portfolio_label.config(text=portfolio_text)
     save_button.config(command=lambda: save_portfolio_to_csv(top_stocks))
     save_button.pack(pady=10)
-    chart_frame.pack()
+    chart_frame.pack(side="top", padx=20, pady=20)
     show_sector_distribution(top_stocks)
     progress_bar.stop()
 
 # === Theme ===
 def set_theme(theme):
-    bg = "#f7f7f7" if theme == "light" else "#2e2e2e"
-    fg = "#000000" if theme == "light" else "#ffffff"
-    entry_bg = "white" if theme == "light" else "#3a3a3a"
-    entry_fg = "black" if theme == "light" else "#ffffff"
+    style = ttk.Style()
+    
+    if theme == "light":
+        bg = "#f7f7f7"
+        fg = "#000000"
+        style.theme_use('default')
+        style.configure("TCombobox", fieldbackground=bg, background=bg, foreground=fg)
+        style.configure("TProgressbar", troughcolor=bg, background="#4CAF50")
+    else:
+        bg = "#2e2e2e"
+        fg = "#ffffff"
+        style.theme_use('clam')
+        style.configure("TCombobox", fieldbackground=bg, background=bg, foreground=fg)
+        style.configure("TProgressbar", troughcolor=bg, background="#4CAF50")
 
     window.config(bg=bg)
-    input_frame.config(bg=bg)
     chart_frame.config(bg=bg)
     portfolio_label.config(bg=bg, fg=fg)
-
-    for widget in window.winfo_children() + input_frame.winfo_children():
-        cls = widget.__class__.__name__
+    input_frame.config(bg=bg)
+    
+    for widget in input_frame.winfo_children():
         try:
             widget.config(bg=bg, fg=fg)
         except:
             pass
-
-        # Entry and Text widgets
-        if isinstance(widget, tk.Entry) or isinstance(widget, tk.Text):
-            widget.config(bg=entry_bg, fg=entry_fg, insertbackground=entry_fg)
-
-        # Buttons
-        if isinstance(widget, tk.Button):
-            widget.config(bg="#555555" if theme == "dark" else "#e0e0e0",
-                          fg=fg, activebackground="#777777" if theme == "dark" else "#d0d0d0")
-
-    # Update ttk styles
-    style = ttk.Style()
-    style.theme_use("clam")
-
-    style.configure("TCombobox",
-                    fieldbackground=entry_bg,
-                    background=entry_bg,
-                    foreground=entry_fg)
-
-    style.configure("TEntry", fieldbackground=entry_bg, foreground=entry_fg)
-
-    style.configure("TButton",
-                    background=entry_bg,
-                    foreground=entry_fg)
-
-    style.configure("TLabel", background=bg, foreground=fg)
-
-    style.configure("TProgressbar", troughcolor=bg, background="#4CAF50")
+    for widget in window.winfo_children():
+        if isinstance(widget, tk.Label) or isinstance(widget, tk.Button):
+            try:
+                widget.config(bg=bg, fg=fg)
+            except:
+                pass
 
     debt_amount_label.config(bg=bg, fg=fg)
+
+# === Placeholder Chart ===
+def show_example_stock_graph():
+    symbols = ['AAPL', 'GOOG', 'PFE']
+    api_key = 'Nchnea48D4_2UF5ngByji3ygE5lB5fzl'
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    for symbol in symbols:
+        url = f'https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/2024-04-10/2024-04-17?apiKey={api_key}'
+        try:
+            response = requests.get(url)
+            data = response.json()
+            if 'results' in data:
+                closes = [day['c'] for day in data['results']]
+                dates = [day['t'] for day in data['results']]
+                readable_dates = [time.strftime('%m-%d', time.gmtime(ts / 1000)) for ts in dates]
+                ax.plot(readable_dates, closes, label=symbol)
+        except Exception as e:
+            print(f"Failed to fetch {symbol}: {e}")
+
+    ax.set_title("Recent Stock Prices")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Price ($)")
+    ax.legend()
+    ax.grid(True)
+
+    canvas = FigureCanvasTkAgg(fig, master=chart_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack()
 
 # === UI ===
 window = tk.Tk()
 window.title("Smart Portfolio Generator")
-window.geometry("700x900")
+window.geometry("900x900")
 window.config(bg="#f7f7f7")
 
-input_frame = tk.Frame(window, bg="#f7f7f7")
+canvas = tk.Canvas(window)
+scrollbar = ttk.Scrollbar(window, orient="vertical", command=canvas.yview)
+canvas.configure(yscrollcommand=scrollbar.set)
+
+frame = tk.Frame(canvas, bg="#f7f7f7")
+
+canvas.create_window((0, 0), window=frame, anchor="nw")
+scrollbar.pack(side="right", fill="y")
+canvas.pack(side="left", fill="both", expand=True)
+
+input_frame = tk.Frame(frame, bg="#f7f7f7")
 input_frame.pack(pady=10)
 
 def add_labeled_input(text, variable=None, type='entry', options=None):
-    tk.Label(input_frame, text=text, font=("Helvetica", 12), bg="#f7f7f7", fg="#000000").pack()
+    tk.Label(input_frame, text=text, font=("Helvetica", 12),
+             bg=window["bg"], fg="#000000" if window["bg"] == "#f7f7f7" else "#ffffff").pack()
     
     if type == 'entry':
-        entry = tk.Entry(input_frame, font=("Helvetica", 12), bg="white", fg="black")
+        entry = tk.Entry(input_frame, font=("Helvetica", 12))
         entry.pack(pady=5)
         return entry
 
@@ -205,32 +246,18 @@ def add_labeled_input(text, variable=None, type='entry', options=None):
         return cb
 
     elif type == 'radio':
-        frame = tk.Frame(input_frame, bg="#f7f7f7")
-        frame.pack(pady=5)
+        bg = window["bg"]
+        fg = "#000000" if bg == "#f7f7f7" else "#ffffff"
 
+        frame = tk.Frame(input_frame, bg=bg)
+        frame.pack()
         buttons = []
-
         for opt in options:
-            btn = tk.Radiobutton(frame,
-                                 text=opt.capitalize(),
-                                 variable=variable,
-                                 value=opt,
-                                 indicatoron=0,
-                                 width=10,
-                                 font=("Helvetica", 12, "bold"),
-                                 bg="#cccccc",
-                                 fg="black",
-                                 selectcolor="#4CAF50",
-                                 relief="raised",
-                                 bd=2,
-                                 padx=10,
-                                 pady=5,
-                                 activebackground="#4CAF50")
-
-            btn.variable = variable
-            btn.pack(side="left", padx=5)
-            buttons.append(btn)
-
+            rb = tk.Radiobutton(frame, text=opt.capitalize(), variable=variable, value=opt,
+                                font=("Helvetica", 12), bg=bg, fg=fg,
+                                selectcolor=bg, activebackground=bg, activeforeground=fg)
+            rb.pack(side='left')
+            buttons.append(rb)
         frame.radio_buttons = buttons
         return frame
 
@@ -274,28 +301,28 @@ has_debt_var.trace_add("write", toggle_debt_amount)
 preferred_sectors_var = tk.StringVar()
 add_labeled_input("Preferred Sectors (comma-separated)", preferred_sectors_var, 'entry')
 
-portfolio_label = tk.Label(window, text="Your Generated Portfolio will appear here.", font=("Helvetica", 12), bg="#f7f7f7", fg="#000000")
-portfolio_label.pack(pady=10)
+# Age input
+age_entry = add_labeled_input("Age")
 
-save_button = tk.Button(window, text="Save Portfolio", font=("Helvetica", 12), command=save_portfolio_to_csv)
-chart_frame = tk.Frame(window)
+theme_dropdown = ttk.Combobox(window, values=["light", "dark"], state="readonly")
+theme_dropdown.set("light")
+theme_dropdown.bind("<<ComboboxSelected>>", lambda e: set_theme(theme_dropdown.get()))
+theme_dropdown.pack(pady=10)
 
-generate_button = tk.Button(window, text="Generate Portfolio", font=("Helvetica", 12), command=generate_portfolio)
-generate_button.pack(pady=10)
+tk.Button(frame, text="Generate Portfolio", command=generate_portfolio, font=("Helvetica", 14, "bold"),
+          bg="#4CAF50", fg="white", width=25).pack(pady=15)
 
-progress_bar = ttk.Progressbar(window, mode="indeterminate")
+progress_bar = ttk.Progressbar(frame, orient="horizontal", length=400, mode="indeterminate")
 progress_bar.pack(pady=10)
 
-# === Theme Toggle ===
-current_theme = tk.StringVar(value="light")
+portfolio_label = tk.Label(frame, text="", font=("Helvetica", 11), bg="#f7f7f7", justify="left")
+portfolio_label.pack(pady=10)
 
-def toggle_theme():
-    new_theme = "dark" if current_theme.get() == "light" else "light"
-    current_theme.set(new_theme)
-    theme_toggle_button.config(text=f"Switch to {'Light' if new_theme == 'dark' else 'Dark'} Mode")
-    set_theme(new_theme)
+save_button = tk.Button(frame, text="Save Portfolio to CSV", font=("Helvetica", 12), bg="#2196F3", fg="white")
 
-theme_toggle_button = tk.Button(window, text="Switch to Dark Mode", font=("Helvetica", 12), command=toggle_theme)
-theme_toggle_button.pack(pady=5)
+chart_frame = tk.Frame(frame, bg="#f7f7f7")
+show_example_stock_graph() # Show placeholder chart here
+chart_frame.pack(side="top", padx=20, pady=20)
 
+set_theme("light")
 window.mainloop()
