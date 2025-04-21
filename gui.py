@@ -55,89 +55,6 @@ def score_stock(stock):
         score += 1
     return score
 
-def save_profile_to_json(profile_data):
-    # Ask for a filename to save the JSON file
-    file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
-    if file_path:
-        try:
-            with open(file_path, 'w') as f:
-                json.dump(profile_data, f, indent=4)
-            messagebox.showinfo("Success", "Profile saved successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error saving profile: {e}")
-
-
-def load_profile_from_json():
-    # Ask for a file to load the JSON profile
-    file_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
-    if file_path:
-        try:
-            with open(file_path, 'r') as f:
-                profile_data = json.load(f)
-                display_profile(profile_data)
-        except Exception as e:
-            messagebox.showerror("Error", f"Error loading profile: {e}")
-
-
-def display_profile(profile_data):
-    # Clear any existing widgets
-    for widget in profile_frame.winfo_children():
-        widget.destroy()
-
-    # Display profile information
-    name_label = tk.Label(profile_frame, text=f"Name: {profile_data.get('name', 'N/A')}")
-    name_label.pack(pady=5)
-    
-    age_label = tk.Label(profile_frame, text=f"Age: {profile_data.get('age', 'N/A')}")
-    age_label.pack(pady=5)
-
-    email_label = tk.Label(profile_frame, text=f"Email: {profile_data.get('email', 'N/A')}")
-    email_label.pack(pady=5)
-
-
-def generate_sample_profile():
-    profile_data = {
-        "name": name_entry.get(),
-        "age": age_entry.get(),
-        "email": email_entry.get()
-    }
-    save_profile_to_json(profile_data)
-
-
-root = tk.Tk()
-root.title("Profile Manager")
-root.geometry("400x300")
-
-name_label = tk.Label(root, text="Name:")
-name_label.pack(pady=5)
-name_entry = tk.Entry(root)
-name_entry.pack(pady=5)
-
-age_label = tk.Label(root, text="Age:")
-age_label.pack(pady=5)
-age_entry = tk.Entry(root)
-age_entry.pack(pady=5)
-
-email_label = tk.Label(root, text="Email:")
-email_label.pack(pady=5)
-email_entry = tk.Entry(root)
-email_entry.pack(pady=5)
-
-# Create a frame to display loaded profile data
-profile_frame = tk.Frame(root)
-profile_frame.pack(pady=20)
-
-# Button to generate and save JSON profile
-generate_button = tk.Button(root, text="Generate JSON", command=generate_sample_profile)
-generate_button.pack(pady=10)
-
-# Button to load and display JSON profile
-load_button = tk.Button(root, text="Load JSON Profile", command=load_profile_from_json)
-load_button.pack(pady=10)
-
-# Start the Tkinter event loop
-root.mainloop()
-
 def show_sector_distribution(stocks):
     sectors = {}
     for stock in stocks:
@@ -393,6 +310,7 @@ theme_dropdown.set("light")
 theme_dropdown.bind("<<ComboboxSelected>>", lambda e: set_theme(theme_dropdown.get()))
 theme_dropdown.pack(pady=10)
 
+
 tk.Button(frame, text="Generate Portfolio", command=generate_portfolio, font=("Helvetica", 14, "bold"),
           bg="#4CAF50", fg="white", width=25).pack(pady=15)
 
@@ -402,7 +320,18 @@ progress_bar.pack(pady=10)
 portfolio_label = tk.Label(frame, text="", font=("Helvetica", 11), bg="#f7f7f7", justify="left")
 portfolio_label.pack(pady=10)
 
-save_button = tk.Button(frame, text="Save Portfolio to CSV", font=("Helvetica", 12), bg="#2196F3", fg="white")
+# Combined frame to hold chart and button side-by-side
+chart_and_button_frame = tk.Frame(frame, bg="#f7f7f7")
+chart_and_button_frame.pack(side="top", padx=20, pady=20, fill="both", expand=True)
+
+# Chart frame on the left
+chart_frame = tk.Frame(chart_and_button_frame, bg="#f7f7f7")
+chart_frame.pack(side="left", padx=10)
+
+# Save button on the right
+save_button = tk.Button(chart_and_button_frame, text="Save Portfolio to CSV",
+                        font=("Helvetica", 12), bg="#2196F3", fg="white")
+# Don't pack it here — it’s packed after generating the portfolio.
 
 chart_frame = tk.Frame(frame, bg="#f7f7f7")
 show_example_stock_graph() # Show placeholder chart here
