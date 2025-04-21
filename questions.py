@@ -23,7 +23,7 @@ def calculate_risk_score(answers):
     if answers["debt_level"] == "yes":
         if answers["debt_amount"] > 50000:
             score -= 2
-        elif answers["debt_amount"] > 10000:
+        elif answers["debt_amount"] > 20000:
             score -= 1
         else:
             score -= 0.5
