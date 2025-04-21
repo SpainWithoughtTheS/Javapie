@@ -4,6 +4,7 @@ import random
 import time
 import requests
 import csv
+import json
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -53,6 +54,89 @@ def score_stock(stock):
     elif stock["dividend_yield"] > 0.02:
         score += 1
     return score
+
+def save_profile_to_json(profile_data):
+    # Ask for a filename to save the JSON file
+    file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+    if file_path:
+        try:
+            with open(file_path, 'w') as f:
+                json.dump(profile_data, f, indent=4)
+            messagebox.showinfo("Success", "Profile saved successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error saving profile: {e}")
+
+
+def load_profile_from_json():
+    # Ask for a file to load the JSON profile
+    file_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
+    if file_path:
+        try:
+            with open(file_path, 'r') as f:
+                profile_data = json.load(f)
+                display_profile(profile_data)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error loading profile: {e}")
+
+
+def display_profile(profile_data):
+    # Clear any existing widgets
+    for widget in profile_frame.winfo_children():
+        widget.destroy()
+
+    # Display profile information
+    name_label = tk.Label(profile_frame, text=f"Name: {profile_data.get('name', 'N/A')}")
+    name_label.pack(pady=5)
+    
+    age_label = tk.Label(profile_frame, text=f"Age: {profile_data.get('age', 'N/A')}")
+    age_label.pack(pady=5)
+
+    email_label = tk.Label(profile_frame, text=f"Email: {profile_data.get('email', 'N/A')}")
+    email_label.pack(pady=5)
+
+
+def generate_sample_profile():
+    profile_data = {
+        "name": name_entry.get(),
+        "age": age_entry.get(),
+        "email": email_entry.get()
+    }
+    save_profile_to_json(profile_data)
+
+
+root = tk.Tk()
+root.title("Profile Manager")
+root.geometry("400x300")
+
+name_label = tk.Label(root, text="Name:")
+name_label.pack(pady=5)
+name_entry = tk.Entry(root)
+name_entry.pack(pady=5)
+
+age_label = tk.Label(root, text="Age:")
+age_label.pack(pady=5)
+age_entry = tk.Entry(root)
+age_entry.pack(pady=5)
+
+email_label = tk.Label(root, text="Email:")
+email_label.pack(pady=5)
+email_entry = tk.Entry(root)
+email_entry.pack(pady=5)
+
+# Create a frame to display loaded profile data
+profile_frame = tk.Frame(root)
+profile_frame.pack(pady=20)
+
+# Button to generate and save JSON profile
+generate_button = tk.Button(root, text="Generate JSON", command=generate_sample_profile)
+generate_button.pack(pady=10)
+
+# Button to load and display JSON profile
+load_button = tk.Button(root, text="Load JSON Profile", command=load_profile_from_json)
+load_button.pack(pady=10)
+
+# Start the Tkinter event loop
+root.mainloop()
 
 def show_sector_distribution(stocks):
     sectors = {}
