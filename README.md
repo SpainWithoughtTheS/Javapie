@@ -1,5 +1,3 @@
-Certainly! Here's an updated version of your **README.md** with a **"Known Issues and Problems"** section included:
-
 ```markdown
 # Smart Portfolio Generator
 
@@ -105,7 +103,7 @@ Here are some known issues and limitations with the current version of the Smart
    - **Solution:** Implementing threading or using an asynchronous approach could improve responsiveness during data fetches and calculations.
 
 ### 4. **Data Accuracy**
-   - **Issue:** The app currently uses placeholder/random data for P/E ratios and dividend yields. This data is not reflective of actual market conditions.
+   - **Issue:** This data is not reflective of actual market conditions.
    - **Solution:** Integrating a more reliable data source or using real-time data for all financial indicators would improve the accuracy of the portfolio recommendations.
 
 ### 5. **Limited Error Handling**
@@ -147,9 +145,3 @@ Feel free to reach out if you have any questions or need help with the project!
 
 ```
 
-### Key Changes:
-- **"Known Issues and Problems"** section added.
-- The section includes common issues like stock data fetching delays, limited stock sectors, non-responsive UI, and more. These are potential future improvements and bugs that users may encounter. 
-- Each issue is followed by a brief suggestion on how to solve or improve it.
-
-Feel free to tweak the problems or expand on them as your project evolves!
